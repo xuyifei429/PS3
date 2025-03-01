@@ -1,0 +1,165 @@
+---
+title: "Problem Set 3"
+author: Yifei Xu
+output: 
+  pdf_document:
+    includes:
+      in_header: NULL
+---
+```{r setup,include=FALSE}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+install.packages("patchwork")
+library(dplyr)
+library(ggplot2)
+library(haven)
+library(patchwork)
+library(tidyverse)
+la_turnout_basic<-read_dta("la_turnout_basic.dta")
+```
+
+## Suppressing Black Votes  
+Keele et al (2021) evaluate the impact of efforts to disenfranchise African American voters in Louisiana in the 1950s and 1960s. They focus specifically on the impact of the Understanding Clause, which only some parishes administered. 
+
+Your task is to replicate, and then improve on, Figure 2. Be sure to choose an appropriate size for the visuals in your final output. 
+
+  1. Replicate Figure 2 from the article. Match *every* element of the plot. Note that for this figure, they create two separate graphs and paste them together. You will need to do the same with `patchwork`.  
+
+```{r}
+options(warn = -1)
+cleaned_data<-la_turnout_basic %>%
+  filter(!is.na(understandingclause2)) %>%
+  group_by(year,understandingclause2) %>%
+  summarize(
+    mean_black_byyear=mean(blackregrate,na.rm = TRUE),
+    mean_white_byyear=mean(whiteregrate,na.rm = TRUE),
+    .groups = "drop")
+```
+
+```{r, fig.width = 4, fig.height = 4.2, dpi = 300}
+plot1<-ggplot(cleaned_data,aes(x=year,y=mean_black_byyear,group=understandingclause2)) +
+  geom_line(data=cleaned_data %>% filter(understandingclause2 == 1), color = "#FFD700")+
+  geom_line(data = cleaned_data %>% filter(understandingclause2 == 0), color = "black") +
+  geom_point(aes(shape = factor(understandingclause2)), size = 2) + 
+  scale_shape_manual(values = c(16, 17),labels = c("Control", "Treated")) +
+  scale_x_continuous(
+    limits = c(1950,1970),
+    breaks=c(1950, 1955, 1960, 1965, 1970),
+    labels = c("1950", "1955", "1960", "1965", "1970"),
+    expand=c(0.05,0))+
+  scale_y_continuous(
+    limits = c(0.005,0.65),
+    breaks = c(0.2,0.4,0.6),
+    labels = c("0.2","0.4","0.6"),
+    expand=expansion(mult=c(0,0.05))
+    ) +
+  labs(
+    title = NULL,
+    caption = "(a) Black Registration",
+    x="Year",
+    y="Black Registration Rate"
+  ) +
+  theme_minimal()+
+  theme(
+    plot.caption = element_text(size = 12,hjust =0.5),
+    legend.title = element_blank(),
+    axis.text.x = element_text(color = "black"),
+    axis.text.y = element_text(color = "black"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+    )
+```
+
+```{r, fig.width = 4, fig.height = 4.2, dpi = 300}
+plot2<-ggplot(cleaned_data,aes(x=year,y=mean_white_byyear,group=understandingclause2)) +
+  geom_line(data=cleaned_data %>% filter(understandingclause2 == 1), color = "#FFD700")+
+  geom_line(data = cleaned_data %>% filter(understandingclause2 == 0), color = "black") +
+  geom_point(aes(shape = factor(understandingclause2)), size = 2) + 
+  scale_shape_manual(values = c(16, 17),labels = c("Control", "Treated")) +
+  scale_x_continuous(
+    limits = c(1950,1970),
+    breaks=c(1950, 1955, 1960, 1965, 1970),
+    labels = c("1950", "1955", "1960", "1965", "1970"),
+    expand=c(0.05,0))+
+  scale_y_continuous(
+    limits = c(0.543,1.0),
+    breaks = c(0.6,0.7,0.8,0.9,1.0),
+    labels = c("0.6","0.7","0.8","0.9","1.0"),
+    expand=expansion(mult=c(0,0.05))
+    ) +
+  labs(
+    title = NULL,
+    caption = "(b) White Registration",
+    x="Year",
+    y="White Registration Rate"
+  ) +
+  theme_minimal()+
+  theme(
+    plot.caption = element_text(size = 12,hjust = 0.5),
+    legend.title = element_blank(),
+    axis.text.x = element_text(color = "black"),
+    axis.text.y = element_text(color = "black"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) 
+```
+
+```{r, fig.width = 8.5, fig.height = 4, dpi = 300}
+plot1+plot2
+```
+
+
+
+  2. Improve Figure 2. I'm asking for several changes:   
+    - Set the vertical axes to range from 0-1.   
+    - Remove the gridlines from the plot.   
+    - Add a lightly shaded area denoting the use of the Understanding Clause (1954 to 1965 according to Justice Department investigations).  
+    - Use faceting to create two subplots instead of two separate plots. Hint: you will need to pivot to make this work.  
+    - Improve the visibility of the lines/shapes as you see fit.  
+```{r}
+cleaned_data_long <- cleaned_data %>%
+  pivot_longer(cols = c(mean_black_byyear, mean_white_byyear),
+               names_to = "Registration_Type",
+               values_to = "Registration_Rate") %>%
+  mutate(Registration_Type = recode(Registration_Type,
+                                    mean_black_byyear = "Black Registration",
+                                    mean_white_byyear = "White Registration"))
+```
+
+```{r, fig.width = 8.5, fig.height = 4, dpi = 300}
+ggplot(cleaned_data_long,aes(x=year,y=Registration_Rate,group=understandingclause2)) +
+  geom_rect(aes(xmin = 1954, xmax = 1965, ymin = 0, ymax = 1), 
+            fill = "grey", alpha = 0.1, inherit.aes = FALSE) +
+  geom_line(data=cleaned_data_long %>% filter(understandingclause2 == 1), color = "#7A3B3B")+
+  geom_line(data=cleaned_data_long %>% filter(understandingclause2 == 0), color = "#1E90FF") +
+  geom_point(aes(shape = factor(understandingclause2)),size = 2,color = "#7CFC00") +
+  scale_shape_manual(values = c(16, 17), labels = c("Control", "Treated")) +
+  scale_x_continuous(
+    limits = c(1950,1970),
+    breaks=c(1950, 1955, 1960, 1965, 1970),
+    labels = c("1950", "1955", "1960", "1965", "1970"))+
+  scale_y_continuous(limits = c(0, 1), 
+                     breaks = seq(0, 1, by = 0.1),
+                     expand=expansion(mult = c(0,0.05))) +
+  labs(
+    title = NULL,
+    caption = "Registration Rate by Type",
+    x = "Year",
+    y = "Registration Rate"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.caption = element_text(size = 12, hjust = 0.5),
+    legend.title = element_blank(),
+    axis.text.x = element_text(color = "black"),
+    axis.text.y = element_text(color = "black"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
+    panel.grid = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  facet_wrap(~Registration_Type)
+```
+#Why I chose to use the above colors, in a few sentences: 
+Restricting voting rights, where "understandingclause==1" (the Treated group), whether for black Americans or white Americans, is anti-democracy. So I used brown, a deep and dark color to represent repression and conservatism.
+Whereas in the Control group, where "understandingclause==0", I used vivid blue to represent freedom, liberty, and democracy. 
+The color of the dots is just for highlights, and the grey area is to make sure this part doesn't steal the other parts' thunder.
+
+Homework aside, I actually quite like plum-undertoned brown. It has naturally underrated, earthy tones
+that suit my self-effacement personality.
